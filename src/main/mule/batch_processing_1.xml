@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="fac383a0-a295-417b-a610-97feb0d5ffcd" >
+		<http:listener-connection host="localhost" port="8081" />
+	</http:listener-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="941954b3-f3dc-4ab2-9b74-767584a838b7" >
+	</file:config>
+	<file:config name="File_Config1" doc:name="File Config" doc:id="40bcd122-c132-4d34-9ad3-8bd839bdda13" >
+		<file:connection workingDir="C:\Users\Reddy\Desktop\data\Batch\Batch step1" />
+	</file:config>
+	<file:config name="File_Config2" doc:name="File Config" doc:id="45df6471-328e-459e-872f-aa4519f33822" >
+		<file:connection workingDir="C:\Users\Reddy\Desktop\data\Batch\Batch step2" />
+	</file:config>
+	<flow name="batch_processing_1Flow" doc:id="a5d37c67-5775-482a-98c5-05104efe66a5" >
+		<http:listener doc:name="Listener" doc:id="084bf012-3545-407b-8595-d3b05c9ca699" config-ref="HTTP_Listener_config" path="/"/>
+		<file:read doc:id="d6106b5d-9522-4c54-a974-c72ea80628c1" config-ref="File_Config" path="C:\Users\Reddy\Desktop\data\Batch\100 CC Records.csv"/>
+		<logger level="INFO" doc:name="Logger" doc:id="44baaf23-85fc-4b1c-8179-87552e3460ab" message="#[attributes.fileName]"/>
+		<ee:transform doc:name="Transform Message" doc:id="8a7c16a0-9bd1-4662-8fe4-d682ac6699f0">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<batch:job jobName="batch_processing_1Batch_Job" doc:id="27523218-81f0-479f-8358-be2d348a63c1" blockSize="10">
+			<batch:process-records >
+				<batch:step name="Batch_Step_json" doc:id="4926b4cb-7b39-446c-9688-3a07a7d46d18" acceptExpression="#[payload.id&gt;50]">
+					<logger level="INFO" doc:name="Logger" doc:id="40c02348-baca-4790-9158-dd15313fc5f4" message="&lt;=== JSON processing started ===&gt;" />
+					<set-variable value="#[payload.Card_Number]" doc:name="Set Variable" doc:id="05972375-2d0d-408c-a01a-7917a4cdaf88" variableName="fileName" />
+					<ee:transform doc:name="Transform Message" doc:id="9a50c3ca-faa9-4e43-b750-ed0446799e30">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+records:payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<file:write doc:name="Write" doc:id="e6d0e3a4-bff9-4b3d-af01-d8b47b9e4851" config-ref="File_Config2" path="#[vars.fileName ++ '.json']" />
+				</batch:step>
+				<batch:step name="Batch_Step_xml" doc:id="454509a1-18a8-4bd0-bf9b-1ff3842e916e" acceptExpression="#[sizeOf(payload)&lt;51]">
+					<logger level="INFO" doc:name="Logger" doc:id="ee27a105-882a-405c-8092-3e75a81a6817" message="&lt;=== XML processing started ===&gt;"/>
+					<ee:transform doc:name="Transform Message" doc:id="043a5536-07bd-44e5-9af9-868496f503c3" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+---
+customers:payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<file:write doc:name="Write" doc:id="86357bb7-8fe6-4469-80a0-e051ed802f0f" config-ref="File_Config1" path="#[vars.fileName ++ '.xml']"/>
+				</batch:step>
+			</batch:process-records>
+			<batch:on-complete >
+				<logger level="INFO" doc:name="Logger" doc:id="c4f4b089-5fff-45a6-bbdf-9756ebcf06de" message='#["processing completed =====&gt;" ++ payload.successfulRecords]'/>
+			</batch:on-complete>
+		</batch:job>
+		<set-payload value='#["Batch Processing Completed"]' doc:name="Set Payload" doc:id="68aba723-2f40-4f8f-b257-7629e3843585" />
+	</flow>
+</mule>
